@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bullseye Score Reader</title>
+<style>
+  :root {
+    --bg: #f5f5f0;
+    --surface: #ffffff;
+    --border: #d1d5db;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --danger: #dc2626;
+    --success: #16a34a;
+    --header-bg: #d9e1f2;
+    --stage-bg: #e2efda;
+    --total-bg: #fce4d6;
+    --grand-bg: #bdd7ee;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .navbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .navbar h1 { font-size: 18px; font-weight: 700; }
+  .navbar-actions { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { background: #f3f4f6; }
+  .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-success { background: var(--success); color: white; border-color: var(--success); }
+  .btn-success:hover { background: #15803d; }
+  .btn-danger { background: var(--danger); color: white; border-color: var(--danger); }
+  .btn-sm { padding: 4px 10px; font-size: 13px; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px;
+    text-align: center;
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 24px;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--primary);
+    background: #eff6ff;
+  }
+  .upload-zone h2 { font-size: 18px; margin-bottom: 8px; }
+  .upload-zone p { color: var(--text-muted); font-size: 14px; }
+  .upload-zone input { display: none; }
+
+  .preview-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    align-items: flex-start;
+  }
+  .preview-img {
+    max-width: 300px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .preview-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 48px;
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .progress-wrap {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto 16px;
+    background: #e5e7eb;
+    border-radius: 8px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--primary);
+    border-radius: 8px;
+    transition: width 0.4s ease;
+  }
+  .progress-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 8px;
+  }
+
+  .score-section {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .score-section-header {
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 16px;
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr auto 1fr auto 1fr;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .info-grid label {
+    padding: 8px 10px;
+    font-weight: 600;
+    font-size: 13px;
+    background: #f9fafb;
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .info-grid input {
+    padding: 8px 10px;
+    border: none;
+    border-right: 1px solid var(--border);
+    font-size: 14px;
+    outline: none;
+    background: #fafafa;
+    transition: background 0.15s;
+  }
+  .info-grid input:hover { background: #f0f0f0; }
+  .info-grid input:focus { background: #eff6ff; }
+
+  .stage-table { width: 100%; border-collapse: collapse; }
+  .stage-table th, .stage-table td {
+    border: 1px solid var(--border);
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 13px;
+  }
+  .stage-table th {
+    background: var(--stage-bg);
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .stage-table td.row-label {
+    background: #f9fafb;
+    font-weight: 600;
+    width: 70px;
+    text-align: left;
+    padding-left: 8px;
+  }
+  .stage-table td.total-cell {
+    background: var(--total-bg);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .stage-table input {
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 3px;
+    text-align: center;
+    font-size: 13px;
+    padding: 3px 2px;
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .stage-table input:hover { border-color: #9ca3af; }
+  .stage-table input:focus { background: #eff6ff; border-color: var(--primary); }
+  .stage-table input.total-input {
+    font-weight: 700;
+    font-size: 14px;
+    background: transparent;
+    border-color: transparent;
+  }
+  .stage-table input.total-input:hover { border-color: #9ca3af; }
+  .stage-table input.total-input:focus { background: #eff6ff; border-color: var(--primary); }
+
+  .row-subtotal {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  /* Validation error highlight */
+  .score-error {
+    background: #fef2f2 !important;
+    border-color: var(--danger) !important;
+    color: var(--danger) !important;
+  }
+  .aggregate-row input.score-error,
+  .grand-aggregate input.score-error {
+    background: #fef2f2 !important;
+    border-color: var(--danger) !important;
+    color: var(--danger) !important;
+  }
+
+  .aggregate-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: var(--total-bg);
+    border-top: 1px solid var(--border);
+    font-weight: 700;
+  }
+  .aggregate-row input {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    width: 120px;
+    background: white;
+  }
+
+  .grand-aggregate {
+    background: var(--grand-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+  .grand-aggregate input {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    width: 140px;
+  }
+
+  .actions-bar {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin: 24px 0;
+  }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 24px;
+    width: 420px;
+    max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal h2 { margin-bottom: 16px; font-size: 18px; }
+  .modal label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+  .modal input[type=password] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: monospace;
+    margin-bottom: 6px;
+  }
+  .modal .hint { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .status-dot.set { background: var(--success); }
+  .status-dot.unset { background: var(--danger); }
+
+  .error-msg {
+    background: #fef2f2;
+    color: var(--danger);
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+
+  /* Floating image viewer */
+  .float-viewer {
+    display: none;
+    position: fixed;
+    z-index: 150;
+    background: var(--surface);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    resize: both;
+    min-width: 240px;
+    min-height: 200px;
+  }
+  .float-viewer.active { display: flex; flex-direction: column; }
+  .float-viewer-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #f3f4f6;
+    border-bottom: 1px solid var(--border);
+    cursor: grab;
+    user-select: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .float-viewer-bar:active { cursor: grabbing; }
+  .float-viewer-controls { display: flex; gap: 4px; align-items: center; }
+  .float-viewer-controls button {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    transition: background 0.1s;
+  }
+  .float-viewer-controls button:hover { background: #e5e7eb; }
+  .float-viewer-body {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+  }
+  .float-viewer-body.panning { cursor: grabbing; }
+  .float-viewer-body img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .preview-img { cursor: pointer; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+    border-bottom: 2px solid var(--border);
+  }
+  .tab-btn {
+    padding: 10px 20px;
+    border: none;
+    background: none;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  /* History */
+  .history-list { display: flex; flex-direction: column; gap: 10px; }
+  .history-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: box-shadow 0.15s;
+  }
+  .history-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .history-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .history-info p { font-size: 13px; color: var(--text-muted); }
+  .history-actions { display: flex; gap: 6px; }
+  .history-empty {
+    text-align: center;
+    padding: 48px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 640px) {
+    .container { padding: 12px; }
+    .upload-zone { padding: 24px; }
+    .preview-row { flex-direction: column; }
+    .preview-img { max-width: 100%; }
+    .info-grid { grid-template-columns: auto 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <h1>Bullseye Score Reader</h1>
+  <div class="navbar-actions">
+    <span class="status-dot unset" id="apiStatus" title="API key not set"></span>
+    <button class="btn btn-sm" onclick="openSettings()">Settings</button>
+  </div>
+</nav>
+
+<div class="container">
+  <div id="errorBox" class="error-msg" style="display:none"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabScan" onclick="switchTab('scan')">New Scan</button>
+    <button class="tab-btn" id="tabHistory" onclick="switchTab('history')">History</button>
+  </div>
+
+  <!-- History Section -->
+  <div id="historySection" style="display:none">
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+  <!-- Scan Section -->
+  <div id="scanSection">
+
+  <div id="uploadSection">
+    <div class="upload-zone" id="dropZone">
+      <h2>Upload Score Sheet</h2>
+      <p>Drop an image here or click to browse<br>Supports JPEG, PNG, HEIC</p>
+      <input type="file" id="fileInput" accept="image/*,.heic,.heif">
+    </div>
+  </div>
+
+  <div id="loadingSection" style="display:none">
+    <div class="loading">
+      <p style="font-weight:600;margin-bottom:12px">Reading score sheet with AI...</p>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <p class="progress-text" id="progressText">Uploading image...</p>
+    </div>
+  </div>
+
+  <div id="resultsSection" style="display:none">
+    <div class="preview-row" id="previewRow">
+      <img id="previewImg" class="preview-img" alt="Uploaded score sheet">
+      <div class="preview-info">
+        <p style="font-size:14px;color:var(--text-muted)">Review and edit the extracted scores below. Click any cell to modify.</p>
+        <button class="btn btn-sm" onclick="resetUpload()">Upload New Image</button>
+      </div>
+    </div>
+
+    <div class="score-section" id="rimfireSection">
+      <div class="score-section-header">.22 MATCH (RIMFIRE)</div>
+      <div class="info-grid">
+        <label>NAME</label><input type="text" data-field="rimfire.name">
+        <label>DATE</label><input type="text" data-field="rimfire.date">
+        <label>CLASS</label><input type="text" data-field="rimfire.class">
+        <label>TGT NO.</label><input type="text" data-field="rimfire.tgt_no">
+      </div>
+      <div id="rimfireStages"></div>
+      <div class="aggregate-row">
+        <span>4. RIMFIRE AGGREGATE</span>
+        <input type="text" data-field="rimfire.aggregate" readonly style="cursor:default">
+      </div>
+    </div>
+
+    <div class="score-section" id="centerfireSection">
+      <div class="score-section-header">C.F. MATCH (CENTERFIRE)</div>
+      <div class="info-grid">
+        <label>NAME</label><input type="text" data-field="centerfire.name">
+        <label>DATE</label><input type="text" data-field="centerfire.date">
+        <label>CLASS</label><input type="text" data-field="centerfire.class">
+        <label>TGT NO.</label><input type="text" data-field="centerfire.tgt_no">
+      </div>
+      <div id="centerfireStages"></div>
+      <div class="aggregate-row">
+        <span>8. CENTERFIRE AGGREGATE</span>
+        <input type="text" data-field="centerfire.aggregate" readonly style="cursor:default">
+      </div>
+    </div>
+
+    <div class="grand-aggregate">
+      <span>10. GRAND AGGREGATE</span>
+      <input type="text" data-field="grand_aggregate" id="grandAggInput" readonly style="cursor:default">
+    </div>
+
+    <div class="actions-bar">
+      <button class="btn btn-primary" id="saveBtn" onclick="saveCurrentScan()">Save to History</button>
+      <button class="btn btn-success" onclick="downloadExcel()">Download Excel</button>
+    </div>
+  </div>
+
+  </div><!-- /scanSection -->
+</div>
+
+<div class="float-viewer" id="floatViewer">
+  <div class="float-viewer-bar" id="floatBar">
+    <span>Score Sheet Reference</span>
+    <div class="float-viewer-controls">
+      <button id="zoomOut" title="Zoom out">-</button>
+      <span id="zoomLevel" style="font-size:11px;min-width:36px;text-align:center">100%</span>
+      <button id="zoomIn" title="Zoom in">+</button>
+      <button id="zoomFit" title="Fit to window">Fit</button>
+      <button id="floatClose" title="Close">X</button>
+    </div>
+  </div>
+  <div class="float-viewer-body" id="floatBody">
+    <img id="floatImg" alt="Score sheet reference">
+  </div>
+</div>
+
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2>Settings</h2>
+    <label for="apiKeyInput">Anthropic API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+    <p class="hint">Your key is stored in this browser only and sent to the Anthropic API via our backend for image processing.</p>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="clearApiKey()">Clear Key</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-sm" onclick="closeSettings()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let scoreData = null;
+let uploadedFile = null;
+
+// --- API Key ---
+function getApiKey() { return localStorage.getItem('bullseye_api_key') || ''; }
+
+function updateApiStatus() {
+  const dot = document.getElementById('apiStatus');
+  const hasKey = !!getApiKey();
+  dot.className = 'status-dot ' + (hasKey ? 'set' : 'unset');
+  dot.title = hasKey ? 'API key set' : 'API key not set';
+}
+
+function openSettings() {
+  document.getElementById('apiKeyInput').value = getApiKey();
+  document.getElementById('settingsModal').classList.add('active');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('active');
+}
+
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key) localStorage.setItem('bullseye_api_key', key);
+  else localStorage.removeItem('bullseye_api_key');
+  updateApiStatus();
+  closeSettings();
+}
+
+function clearApiKey() {
+  localStorage.removeItem('bullseye_api_key');
+  document.getElementById('apiKeyInput').value = '';
+  updateApiStatus();
+  closeSettings();
+}
+
+// --- Error ---
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.style.display = 'block';
+  setTimeout(() => box.style.display = 'none', 8000);
+}
+
+// --- Upload ---
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  if (!getApiKey()) { openSettings(); showError('Please set your API key first.'); return; }
+  uploadedFile = file;
+  extractScores(file);
+}
+
+let progressTimer = null;
+
+function startProgress() {
+  const bar = document.getElementById('progressBar');
+  const text = document.getElementById('progressText');
+  let pct = 0;
+  const steps = [
+    { to: 15, msg: 'Uploading image...' },
+    { to: 35, msg: 'Processing image...' },
+    { to: 60, msg: 'Extracting scores with AI...' },
+    { to: 80, msg: 'Reading handwritten values...' },
+    { to: 92, msg: 'Almost done...' },
+  ];
+  let stepIdx = 0;
+  bar.style.width = '0%';
+  text.textContent = steps[0].msg;
+
+  progressTimer = setInterval(() => {
+    if (stepIdx < steps.length && pct >= steps[stepIdx].to) {
+      stepIdx++;
+      if (stepIdx < steps.length) text.textContent = steps[stepIdx].msg;
+    }
+    const target = stepIdx < steps.length ? steps[stepIdx].to : 95;
+    pct += (target - pct) * 0.08;
+    bar.style.width = Math.min(pct, 95) + '%';
+  }, 300);
+}
+
+function finishProgress() {
+  clearInterval(progressTimer);
+  const bar = document.getElementById('progressBar');
+  bar.style.width = '100%';
+  document.getElementById('progressText').textContent = 'Done!';
+}
+
+function resetProgress() {
+  clearInterval(progressTimer);
+  document.getElementById('progressBar').style.width = '0%';
+}
+
+async function extractScores(file) {
+  document.getElementById('uploadSection').style.display = 'none';
+  document.getElementById('loadingSection').style.display = 'block';
+  document.getElementById('resultsSection').style.display = 'none';
+  startProgress();
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch('/api/extract', {
+      method: 'POST',
+      headers: { 'X-API-Key': getApiKey() },
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Extraction failed');
+    finishProgress();
+    scoreData = data;
+    currentScanSaved = false;
+    setTimeout(() => showResults(), 400);
+  } catch (err) {
+    resetProgress();
+    showError(err.message);
+    document.getElementById('uploadSection').style.display = 'block';
+    document.getElementById('loadingSection').style.display = 'none';
+  }
+}
+
+// --- Render Results (safe DOM methods) ---
+function setNestedValue(obj, path, value) {
+  for (let i = 0; i < path.length - 1; i++) {
+    if (!obj[path[i]]) obj[path[i]] = {};
+    obj = obj[path[i]];
+  }
+  obj[path[path.length - 1]] = value;
+}
+
+function getNestedValue(obj, path) {
+  let val = obj;
+  for (const key of path) val = val?.[key];
+  return val;
+}
+
+let currentScanSaved = false;
+
+function showResults() {
+  document.getElementById('loadingSection').style.display = 'none';
+  // Use the server-converted JPEG for preview (works for HEIC and all formats)
+  const previewB64 = scoreData._preview_b64;
+  if (previewB64) {
+    document.getElementById('previewImg').src = 'data:image/jpeg;base64,' + previewB64;
+  }
+  document.getElementById('resultsSection').style.display = 'block';
+  bindInfoFields();
+  buildStagesDOM('rimfire', 'rimfireStages', [1, 2, 3]);
+  buildStagesDOM('centerfire', 'centerfireStages', [5, 6, 7]);
+  recalculate();
+  updateSaveButton();
+}
+
+function bindInfoFields() {
+  document.querySelectorAll('[data-field]').forEach(input => {
+    const path = input.dataset.field.split('.');
+    input.value = getNestedValue(scoreData, path) ?? '';
+    input.oninput = () => setNestedValue(scoreData, path, input.value);
+  });
+}
+
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  if (attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'className') node.className = v;
+      else if (k === 'colSpan') node.colSpan = v;
+      else if (k === 'rowSpan') node.rowSpan = v;
+      else if (k.startsWith('on')) node[k] = v;
+      else node.setAttribute(k, v);
+    }
+  }
+  if (children != null) {
+    if (Array.isArray(children)) children.forEach(c => { if (c != null) node.appendChild(c); });
+    else if (typeof children === 'string') node.textContent = children;
+    else node.appendChild(children);
+  }
+  return node;
+}
+
+// --- Score calculation ---
+function shotValue(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return v;
+  const s = String(v).trim().toUpperCase();
+  if (s === 'X') return 10;
+  if (s === 'M') return 0;
+  const n = Number(s);
+  if (!isNaN(n) && s !== '') return n;
+  return null;
+}
+
+function isX(v) {
+  if (v === null || v === undefined) return false;
+  return String(v).trim().toUpperCase() === 'X';
+}
+
+function calcStageTotal(stageData) {
+  const s1 = stageData.string1 || [];
+  const s2 = stageData.string2 || [];
+  let score = 0, xs = 0, hasAny = false;
+  for (const arr of [s1, s2]) {
+    for (const v of arr) {
+      const sv = shotValue(v);
+      if (sv !== null) { score += sv; hasAny = true; }
+      if (isX(v)) xs++;
+    }
+  }
+  if (!hasAny) return '';
+  return xs > 0 ? score + '-' + xs : String(score);
+}
+
+function calcAggregate(matchData) {
+  let totalScore = 0, totalXs = 0, hasAny = false;
+  for (const key of ['slow_fire', 'timed_fire', 'rapid_fire']) {
+    const stage = matchData[key];
+    if (!stage) continue;
+    for (const sKey of ['string1', 'string2']) {
+      const arr = stage[sKey] || [];
+      for (const v of arr) {
+        const sv = shotValue(v);
+        if (sv !== null) { totalScore += sv; hasAny = true; }
+        if (isX(v)) totalXs++;
+      }
+    }
+  }
+  if (!hasAny) return '';
+  return totalXs > 0 ? totalScore + '-' + totalXs : String(totalScore);
+}
+
+function calcGrandAggregate() {
+  let totalScore = 0, totalXs = 0, hasAny = false;
+  for (const matchType of ['rimfire', 'centerfire']) {
+    const match = scoreData[matchType];
+    if (!match) continue;
+    for (const key of ['slow_fire', 'timed_fire', 'rapid_fire']) {
+      const stage = match[key];
+      if (!stage) continue;
+      for (const sKey of ['string1', 'string2']) {
+        const arr = stage[sKey] || [];
+        for (const v of arr) {
+          const sv = shotValue(v);
+          if (sv !== null) { totalScore += sv; hasAny = true; }
+          if (isX(v)) totalXs++;
+        }
+      }
+    }
+  }
+  if (!hasAny) return '';
+  return totalXs > 0 ? totalScore + '-' + totalXs : String(totalScore);
+}
+
+function recalculate() {
+  for (const matchType of ['rimfire', 'centerfire']) {
+    const match = scoreData[matchType];
+    if (!match) continue;
+    for (const key of ['slow_fire', 'timed_fire', 'rapid_fire']) {
+      if (match[key]) {
+        match[key].total = calcStageTotal(match[key]);
+      }
+    }
+    match.aggregate = calcAggregate(match);
+  }
+  scoreData.grand_aggregate = calcGrandAggregate();
+
+  // Update all displayed total/aggregate fields
+  document.querySelectorAll('[data-field]').forEach(input => {
+    const path = input.dataset.field.split('.');
+    const lastKey = path[path.length - 1];
+    if (lastKey === 'total' || lastKey === 'aggregate' || path[0] === 'grand_aggregate') {
+      input.value = getNestedValue(scoreData, path) ?? '';
+    }
+  });
+
+  // Update total inputs inside stage tables
+  document.querySelectorAll('.total-input').forEach(input => {
+    if (input.dataset.matchType && input.dataset.stageKey) {
+      const val = scoreData[input.dataset.matchType]?.[input.dataset.stageKey]?.total ?? '';
+      input.value = val;
+    }
+  });
+
+  // Update row subtotals (read directly from scoreData arrays)
+  document.querySelectorAll('.row-subtotal').forEach(span => {
+    const mt = span.dataset.matchType;
+    const sk = span.dataset.stageKey;
+    const strK = span.dataset.stringKey;
+    const arr = (scoreData[mt]?.[sk]?.[strK]) || [];
+    let sum = 0, xs = 0, hasAny = false;
+    for (const v of arr) {
+      const sv = shotValue(v);
+      if (sv !== null) { sum += sv; hasAny = true; }
+      if (isX(v)) xs++;
+    }
+    if (!hasAny) { span.textContent = ''; return; }
+    span.textContent = xs > 0 ? sum + '-' + xs : String(sum);
+  });
+
+  // Validate: highlight shot inputs with invalid values
+  document.querySelectorAll('.stage-table input[data-shot]').forEach(input => {
+    const v = input.value.trim();
+    if (v === '') { input.classList.remove('score-error'); return; }
+    const upper = v.toUpperCase();
+    if (upper === 'X' || upper === 'M') { input.classList.remove('score-error'); return; }
+    const n = parseInt(v);
+    if (isNaN(n) || n < 0 || n > 10) {
+      input.classList.add('score-error');
+    } else {
+      input.classList.remove('score-error');
+    }
+  });
+
+  // Validate stage totals: check that sum of shots in each stage <= 200
+  document.querySelectorAll('.total-input').forEach(input => {
+    if (!input.dataset.matchType || !input.dataset.stageKey) return;
+    const stage = scoreData[input.dataset.matchType]?.[input.dataset.stageKey];
+    if (!stage) return;
+    let sum = 0, count = 0;
+    for (const sKey of ['string1', 'string2']) {
+      for (const v of (stage[sKey] || [])) {
+        const sv = shotValue(v);
+        if (sv !== null) { sum += sv; count++; }
+      }
+    }
+    // Highlight if we have all 20 shots and score > 200 (impossible)
+    if (count === 20 && sum > 200) {
+      input.classList.add('score-error');
+    } else {
+      input.classList.remove('score-error');
+    }
+  });
+}
+
+function createShotInput(matchType, stageKey, stringKey, idx, value) {
+  const input = el('input', { type: 'text', value: value === null ? '' : String(value), style: 'width:32px', 'data-shot': '1' });
+  input.oninput = () => {
+    if (!scoreData[matchType]) scoreData[matchType] = {};
+    if (!scoreData[matchType][stageKey]) scoreData[matchType][stageKey] = {};
+    if (!scoreData[matchType][stageKey][stringKey]) scoreData[matchType][stageKey][stringKey] = new Array(10).fill(null);
+    const v = input.value.trim();
+    if (v === '') scoreData[matchType][stageKey][stringKey][idx] = null;
+    else if (v.toUpperCase() === 'X') scoreData[matchType][stageKey][stringKey][idx] = 'X';
+    else if (v.toUpperCase() === 'M') scoreData[matchType][stageKey][stringKey][idx] = 0;
+    else { const n = parseInt(v); scoreData[matchType][stageKey][stringKey][idx] = isNaN(n) ? v : n; }
+    recalculate();
+  };
+  return input;
+}
+
+function buildStagesDOM(matchType, containerId, nums) {
+  const container = document.getElementById(containerId);
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  const stages = [
+    { key: 'slow_fire', label: 'SLOW FIRE', rowLabel: 'SLOW' },
+    { key: 'timed_fire', label: 'TIMED FIRE', rowLabel: 'TIMED' },
+    { key: 'rapid_fire', label: 'RAPID FIRE', rowLabel: 'RAPID' },
+  ];
+
+  stages.forEach((stage, idx) => {
+    const stageData = scoreData[matchType]?.[stage.key] || {};
+    const s1 = stageData.string1 || new Array(10).fill(null);
+    const s2 = stageData.string2 || new Array(10).fill(null);
+
+    const table = el('table', { className: 'stage-table' });
+
+    // Header rows
+    const thead = el('thead');
+    const headerRow = el('tr', null, [
+      el('th', { colSpan: '11' }, nums[idx] + '. 20 SHOTS ' + stage.label),
+      el('th', null, 'ROW'),
+      el('th', null, 'TOTAL'),
+    ]);
+    thead.appendChild(headerRow);
+
+    const numRow = el('tr', null, [el('th', { style: 'width:70px' }, '')]);
+    for (let i = 1; i <= 10; i++) numRow.appendChild(el('th', null, String(i)));
+    numRow.appendChild(el('th'));
+    numRow.appendChild(el('th'));
+    thead.appendChild(numRow);
+    table.appendChild(thead);
+
+    // Body
+    const tbody = el('tbody');
+
+    // String 1 row
+    const row1 = el('tr');
+    row1.appendChild(el('td', { className: 'row-label' }, stage.rowLabel));
+    for (let i = 0; i < 10; i++) {
+      row1.appendChild(el('td', null, createShotInput(matchType, stage.key, 'string1', i, s1[i])));
+    }
+    // Row subtotal for string 1
+    const rowTotal1 = el('td', { className: 'total-cell' });
+    const rowTotalSpan1 = el('span', {
+      className: 'row-subtotal',
+      'data-match-type': matchType,
+      'data-stage-key': stage.key,
+      'data-string-key': 'string1',
+    }, '');
+    rowTotal1.appendChild(rowTotalSpan1);
+    row1.appendChild(rowTotal1);
+
+    // Stage total cell spanning 2 rows
+    const totalTd = el('td', { className: 'total-cell', rowSpan: '2' });
+    const totalInput = el('input', {
+      type: 'text',
+      className: 'total-input',
+      value: stageData.total ?? '',
+      'data-match-type': matchType,
+      'data-stage-key': stage.key,
+      readOnly: 'true',
+    });
+    totalInput.style.cursor = 'default';
+    totalTd.appendChild(totalInput);
+    row1.appendChild(totalTd);
+    tbody.appendChild(row1);
+
+    // String 2 row
+    const row2 = el('tr');
+    row2.appendChild(el('td', { className: 'row-label' }, stage.rowLabel));
+    for (let i = 0; i < 10; i++) {
+      row2.appendChild(el('td', null, createShotInput(matchType, stage.key, 'string2', i, s2[i])));
+    }
+    // Row subtotal for string 2
+    const rowTotal2 = el('td', { className: 'total-cell' });
+    const rowTotalSpan2 = el('span', {
+      className: 'row-subtotal',
+      'data-match-type': matchType,
+      'data-stage-key': stage.key,
+      'data-string-key': 'string2',
+    }, '');
+    rowTotal2.appendChild(rowTotalSpan2);
+    row2.appendChild(rowTotal2);
+    tbody.appendChild(row2);
+
+    table.appendChild(tbody);
+    container.appendChild(table);
+  });
+}
+
+async function downloadExcel() {
+  try {
+    // Build payload: copy score data and include the preview image for Excel embedding
+    const payload = {};
+    for (const key of Object.keys(scoreData)) {
+      if (key === '_preview_b64') {
+        payload._image_b64 = scoreData._preview_b64;
+      } else {
+        payload[key] = scoreData[key];
+      }
+    }
+    const res = await fetch('/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      // Handle both JSON and HTML error responses
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const err = await res.json();
+        throw new Error(err.error || 'Export failed');
+      } else {
+        throw new Error('Export failed (server error ' + res.status + ')');
+      }
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const name = scoreData?.centerfire?.name || scoreData?.rimfire?.name || 'scores';
+    a.download = 'bullseye_' + name.replace(/\s+/g, '_') + '.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+function resetUpload() {
+  scoreData = null;
+  uploadedFile = null;
+  currentScanSaved = false;
+  fileInput.value = '';
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('uploadSection').style.display = 'block';
+  floatViewer.classList.remove('active');
+}
+
+// --- Floating image viewer ---
+const floatViewer = document.getElementById('floatViewer');
+const floatBar = document.getElementById('floatBar');
+const floatBody = document.getElementById('floatBody');
+const floatImg = document.getElementById('floatImg');
+let floatZoom = 1;
+let panX = 0, panY = 0;
+
+function applyTransform() {
+  document.getElementById('zoomLevel').textContent = Math.round(floatZoom * 100) + '%';
+  const imgW = floatImg.naturalWidth * floatZoom;
+  const imgH = floatImg.naturalHeight * floatZoom;
+  floatImg.style.width = imgW + 'px';
+  floatImg.style.height = imgH + 'px';
+  // Clamp pan so image doesn't drift off
+  const bodyW = floatBody.clientWidth;
+  const bodyH = floatBody.clientHeight;
+  if (imgW <= bodyW) {
+    panX = (bodyW - imgW) / 2; // center if smaller
+  } else {
+    panX = Math.min(0, Math.max(bodyW - imgW, panX));
+  }
+  if (imgH <= bodyH) {
+    panY = (bodyH - imgH) / 2; // center if smaller
+  } else {
+    panY = Math.min(0, Math.max(bodyH - imgH, panY));
+  }
+  floatImg.style.left = panX + 'px';
+  floatImg.style.top = panY + 'px';
+}
+
+function fitToViewer() {
+  if (!floatImg.naturalWidth || !floatImg.naturalHeight) return;
+  const bodyW = floatBody.clientWidth;
+  const bodyH = floatBody.clientHeight;
+  const scaleW = bodyW / floatImg.naturalWidth;
+  const scaleH = bodyH / floatImg.naturalHeight;
+  floatZoom = Math.min(scaleW, scaleH); // fit both dimensions
+  panX = 0;
+  panY = 0;
+  applyTransform();
+}
+
+function openViewer() {
+  const src = document.getElementById('previewImg').src;
+  if (!src) return;
+
+  // Size the viewer to fill most of the viewport
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const w = Math.min(500, vw - 40);
+  const h = Math.min(vh - 100, 700);
+  floatViewer.style.width = w + 'px';
+  floatViewer.style.height = h + 'px';
+  floatViewer.style.top = '55px';
+  floatViewer.style.right = '20px';
+  floatViewer.style.left = 'auto';
+
+  floatImg.src = src;
+  floatViewer.classList.add('active');
+
+  // Wait for image to load then fit
+  if (floatImg.complete && floatImg.naturalWidth > 0) {
+    setTimeout(fitToViewer, 20);
+  } else {
+    floatImg.onload = () => { fitToViewer(); floatImg.onload = null; };
+  }
+}
+
+document.getElementById('previewImg').addEventListener('click', openViewer);
+
+// Zoom controls
+document.getElementById('zoomIn').addEventListener('click', () => {
+  floatZoom = Math.min(floatZoom * 1.25, 5);
+  applyTransform();
+});
+document.getElementById('zoomOut').addEventListener('click', () => {
+  floatZoom = Math.max(floatZoom * 0.8, 0.1);
+  applyTransform();
+});
+document.getElementById('zoomFit').addEventListener('click', fitToViewer);
+
+// Scroll wheel zoom (zoom toward mouse position)
+floatBody.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = floatBody.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const oldZoom = floatZoom;
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  floatZoom = Math.max(0.1, Math.min(5, floatZoom * factor));
+  // Adjust pan to zoom toward cursor
+  const ratio = floatZoom / oldZoom;
+  panX = mx - ratio * (mx - panX);
+  panY = my - ratio * (my - panY);
+  applyTransform();
+}, { passive: false });
+
+// Close
+document.getElementById('floatClose').addEventListener('click', () => {
+  floatViewer.classList.remove('active');
+});
+
+// --- Drag title bar to move panel ---
+let dragOffset = { x: 0, y: 0 };
+let isDragging = false;
+
+floatBar.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.float-viewer-controls')) return; // don't drag from buttons
+  isDragging = true;
+  const rect = floatViewer.getBoundingClientRect();
+  dragOffset.x = e.clientX - rect.left;
+  dragOffset.y = e.clientY - rect.top;
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (isDragging) {
+    const x = Math.max(0, Math.min(window.innerWidth - 100, e.clientX - dragOffset.x));
+    const y = Math.max(0, Math.min(window.innerHeight - 50, e.clientY - dragOffset.y));
+    floatViewer.style.left = x + 'px';
+    floatViewer.style.top = y + 'px';
+    floatViewer.style.right = 'auto';
+    e.preventDefault();
+    return;
+  }
+  if (isPanning) {
+    panX = panStart.panX + (e.clientX - panStart.mx);
+    panY = panStart.panY + (e.clientY - panStart.my);
+    applyTransform();
+    e.preventDefault();
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  isDragging = false;
+  if (isPanning) {
+    isPanning = false;
+    floatBody.classList.remove('panning');
+  }
+});
+
+// --- Pan image by dragging inside the body ---
+let isPanning = false;
+let panStart = { mx: 0, my: 0, panX: 0, panY: 0 };
+
+floatBody.addEventListener('mousedown', (e) => {
+  isPanning = true;
+  panStart = { mx: e.clientX, my: e.clientY, panX, panY };
+  floatBody.classList.add('panning');
+  e.preventDefault();
+});
+
+// --- Tabs ---
+function switchTab(tab) {
+  document.getElementById('tabScan').classList.toggle('active', tab === 'scan');
+  document.getElementById('tabHistory').classList.toggle('active', tab === 'history');
+  document.getElementById('scanSection').style.display = tab === 'scan' ? 'block' : 'none';
+  document.getElementById('historySection').style.display = tab === 'history' ? 'block' : 'none';
+  if (tab === 'history') loadHistory();
+}
+
+// --- History ---
+async function loadHistory() {
+  const list = document.getElementById('historyList');
+  while (list.firstChild) list.removeChild(list.firstChild);
+
+  try {
+    const res = await fetch('/api/scans');
+    const scans = await res.json();
+
+    if (scans.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'history-empty';
+      empty.textContent = 'No scans yet. Upload a score sheet to get started.';
+      list.appendChild(empty);
+      return;
+    }
+
+    scans.forEach(scan => {
+      const card = document.createElement('div');
+      card.className = 'history-card';
+
+      const info = document.createElement('div');
+      info.className = 'history-info';
+      const h3 = document.createElement('h3');
+      h3.textContent = scan.shooter_name || 'Unknown';
+      const p = document.createElement('p');
+      const parts = [];
+      if (scan.match_date) parts.push(scan.match_date);
+      if (scan.grand_aggregate) parts.push('Grand Agg: ' + scan.grand_aggregate);
+      const created = new Date(scan.created_at);
+      parts.push('Scanned: ' + created.toLocaleDateString() + ' ' + created.toLocaleTimeString());
+      p.textContent = parts.join(' | ');
+      info.appendChild(h3);
+      info.appendChild(p);
+
+      const actions = document.createElement('div');
+      actions.className = 'history-actions';
+
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'btn btn-sm btn-primary';
+      viewBtn.textContent = 'View';
+      viewBtn.addEventListener('click', () => viewScan(scan.id));
+
+      const dlBtn = document.createElement('button');
+      dlBtn.className = 'btn btn-sm btn-success';
+      dlBtn.textContent = 'Excel';
+      dlBtn.addEventListener('click', () => downloadScanExcel(scan.id, scan.shooter_name));
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-sm btn-danger';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', () => deleteScan(scan.id));
+
+      actions.appendChild(viewBtn);
+      actions.appendChild(dlBtn);
+      actions.appendChild(delBtn);
+
+      card.appendChild(info);
+      card.appendChild(actions);
+      list.appendChild(card);
+    });
+  } catch (err) {
+    showError('Failed to load history: ' + err.message);
+  }
+}
+
+async function viewScan(id) {
+  try {
+    const res = await fetch('/api/scans/' + id);
+    if (!res.ok) throw new Error('Failed to load scan');
+    const scan = await res.json();
+    scoreData = scan.score_data;
+    if (scan.image_b64) {
+      scoreData._preview_b64 = scan.image_b64;
+    }
+    currentScanSaved = true; // already in DB
+    switchTab('scan');
+    document.getElementById('uploadSection').style.display = 'none';
+    document.getElementById('loadingSection').style.display = 'none';
+    showResults();
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function downloadScanExcel(id, name) {
+  try {
+    const res = await fetch('/api/scans/' + id + '/export');
+    if (!res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const err = await res.json();
+        throw new Error(err.error || 'Export failed');
+      }
+      throw new Error('Export failed (server error ' + res.status + ')');
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bullseye_' + (name || 'scores').replace(/\s+/g, '_') + '.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+async function deleteScan(id) {
+  if (!confirm('Delete this scan?')) return;
+  try {
+    await fetch('/api/scans/' + id, { method: 'DELETE' });
+    loadHistory();
+  } catch (err) {
+    showError('Failed to delete: ' + err.message);
+  }
+}
+
+function updateSaveButton() {
+  const btn = document.getElementById('saveBtn');
+  if (currentScanSaved) {
+    btn.textContent = 'Saved';
+    btn.disabled = true;
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn');
+  } else {
+    btn.textContent = 'Save to History';
+    btn.disabled = false;
+    btn.classList.add('btn-primary');
+  }
+}
+
+async function saveCurrentScan() {
+  if (!scoreData || currentScanSaved) return;
+  try {
+    const payload = {
+      score_data: scoreData,
+      image_b64: scoreData._preview_b64 || null,
+    };
+    const res = await fetch('/api/scans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to save');
+    currentScanSaved = true;
+    updateSaveButton();
+  } catch (err) {
+    showError('Failed to save: ' + err.message);
+  }
+}
+
+// Init
+updateApiStatus();
+document.getElementById('settingsModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+</script>
+</body>
+</html>
