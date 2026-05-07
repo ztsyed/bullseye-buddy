@@ -576,7 +576,7 @@
     <h2>Settings</h2>
     <label for="apiKeyInput">Anthropic API Key</label>
     <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
-    <p class="hint">Your key is stored in this browser only and sent to the Anthropic API via our backend for image processing.</p>
+    <p class="hint">Your key is kept only for this browser session — it is forgotten when you close the tab or browser. It is sent to the Anthropic API via our backend for image processing.</p>
     <div class="modal-actions">
       <button class="btn btn-danger btn-sm" onclick="clearApiKey()">Clear Key</button>
       <div style="flex:1"></div>
@@ -591,7 +591,7 @@ let scoreData = null;
 let uploadedFile = null;
 
 // --- API Key ---
-function getApiKey() { return localStorage.getItem('bullseye_api_key') || ''; }
+function getApiKey() { return sessionStorage.getItem('bullseye_api_key') || ''; }
 
 function updateApiStatus() {
   const dot = document.getElementById('apiStatus');
@@ -611,14 +611,14 @@ function closeSettings() {
 
 function saveApiKey() {
   const key = document.getElementById('apiKeyInput').value.trim();
-  if (key) localStorage.setItem('bullseye_api_key', key);
-  else localStorage.removeItem('bullseye_api_key');
+  if (key) sessionStorage.setItem('bullseye_api_key', key);
+  else sessionStorage.removeItem('bullseye_api_key');
   updateApiStatus();
   closeSettings();
 }
 
 function clearApiKey() {
-  localStorage.removeItem('bullseye_api_key');
+  sessionStorage.removeItem('bullseye_api_key');
   document.getElementById('apiKeyInput').value = '';
   updateApiStatus();
   closeSettings();

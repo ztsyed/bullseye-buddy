@@ -1,22 +1,59 @@
 import base64
 import io
 import json
+import os
+import secrets
 import sqlite3
-import subprocess
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, request, jsonify, send_file, render_template, g
+from flask import Flask, request, jsonify, send_file, render_template, g, Response
 from anthropic import Anthropic
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XlImage
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception as _heif_err:  # missing wheel, missing libheif, ABI mismatch, etc.
+    import logging
+    logging.getLogger(__name__).warning('HEIC support unavailable: %s', _heif_err)
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32MB max request size
 
-DB_PATH = Path(__file__).parent / 'bullseye.db'
+DATA_DIR = Path(os.environ.get('DATA_DIR', Path(__file__).parent))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = DATA_DIR / 'bullseye.db'
+
+BASIC_AUTH_USER = os.environ.get('BULLSEYE_USER')
+BASIC_AUTH_PASS = os.environ.get('BULLSEYE_PASS')
+
+
+@app.before_request
+def _basic_auth_gate():
+    if request.path.rstrip('/') == '/healthz':
+        return None
+    if not BASIC_AUTH_USER or not BASIC_AUTH_PASS:
+        return None
+    auth = request.authorization
+    if (
+        auth
+        and secrets.compare_digest(auth.username or '', BASIC_AUTH_USER)
+        and secrets.compare_digest(auth.password or '', BASIC_AUTH_PASS)
+    ):
+        return None
+    return Response(
+        'Authentication required.',
+        401,
+        {'WWW-Authenticate': 'Basic realm="Bullseye"'},
+    )
+
+
+@app.route('/healthz')
+def healthz():
+    return 'ok', 200
 
 
 def get_db():
@@ -127,23 +164,7 @@ def convert_to_jpeg(file_bytes, filename):
     Ensures the result is under MAX_IMAGE_BYTES by resizing if needed."""
     from PIL import Image
 
-    suffix = Path(filename).suffix.lower()
-
-    if suffix in ('.heic', '.heif'):
-        # Use sips to convert HEIC to JPEG first, then process with Pillow
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_in:
-            tmp_in.write(file_bytes)
-            tmp_in.flush()
-            tmp_out = tmp_in.name + '.jpg'
-            subprocess.run(
-                ['sips', '-s', 'format', 'jpeg',
-                 tmp_in.name, '--out', tmp_out],
-                capture_output=True, check=True
-            )
-            with open(tmp_out, 'rb') as f:
-                file_bytes = f.read()
-
-    # Open with Pillow and compress/resize as needed
+    # pillow-heif is registered above so Image.open handles HEIC/HEIF natively.
     img = Image.open(io.BytesIO(file_bytes))
     img = img.convert('RGB')
 
